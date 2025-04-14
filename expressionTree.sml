@@ -1,85 +1,56 @@
-structure GrammarAst :
+structure GrammarAst :>
 sig
   datatype exp_func =
-      F0 of string * (unit -> real)
-    | F1 of string * (real -> real)
-    | F2 of string * (real -> real -> real)
-    | F3 of string * (real -> real -> real -> real)
-    | F4 of string * (real -> real -> real -> real -> real)
+      F0 of (unit -> real)
+    | F1 of (real -> real)
+    | F2 of (real -> real -> real)
+    | F3 of (real -> real -> real -> real)
+    | F4 of (real -> real -> real -> real -> real)
+
+  type exp_func_name = string * exp_func
 
   datatype rule =
-      R of exp_func * (rule list)
+      R of exp_func_name * (rule list)
 
-  val grammar2str : rule -> string
+  val rule2str : rule -> string
+  val evalRuleSequential : rule -> real
 end =
 struct
   (* string is the function name; for printing purpose *)
   datatype exp_func =
-      F0 of string * (unit -> real)
-    | F1 of string * (real -> real)
-    | F2 of string * (real -> real -> real)
-    | F3 of string * (real -> real -> real -> real)
-    | F4 of string * (real -> real -> real -> real -> real)
+      F0 of (unit -> real)
+    | F1 of (real -> real)
+    | F2 of (real -> real -> real)
+    | F3 of (real -> real -> real -> real)
+    | F4 of (real -> real -> real -> real -> real)
+
+  type exp_func_name = string * exp_func
 
   datatype rule =
-      R of exp_func * (rule list)
+      R of exp_func_name * (rule list)
 
-  fun map_first_n (f, lst) n =
+
+  fun rule2str (R ((name, _), r_lst)) =
   let
-    fun map_first_n_acc (f, lst) n res =
-      if n = 0 then List.rev res
-      else
-        case lst of
-             [] => raise Fail "Too few arguents."
-           | x::lst_tail =>
-               map_first_n_acc (f, lst_tail) (n - 1) ((f x)::res)
+    fun concat_with_comma str_lst =
+      case str_lst of
+           [] => ""
+         | [str] => str
+         | str::str_lst_tail => str ^ ", " ^ (concat str_lst_tail)
   in
-    map_first_n_acc (f, lst) n []
+    name ^ "(" ^ (concat_with_comma (List.map rule2str r_lst)) ^ ")"
   end
 
-  fun concat_with_comma str_lst =
-    case str_lst of
-         [] => ""
-       | [str] => str
-       | str::str_lst_tail => str ^ ", " ^ (concat str_lst_tail)
 
-  fun grammar2str (R (f_str, r_ls)) =
-    case f_str of
-         F0 (name, f) => name ^ "()"
-       | F1 (name, f) =>
-           name ^ "(" ^ (concat_with_comma (map_first_n (grammar2str, r_ls) 1)) ^ ")"
-       | F2 (name, f) =>
-           name ^ "(" ^ (concat_with_comma (map_first_n (grammar2str, r_ls) 2)) ^ ")"
-       | F3 (name, f) =>
-           name ^ "(" ^ (concat_with_comma (map_first_n (grammar2str, r_ls) 3)) ^ ")"
-       | F4 (name, f) =>
-           name ^ "(" ^ (concat_with_comma (map_first_n (grammar2str, r_ls) 4)) ^ ")"
+  fun evalRuleSequential (R ((_, f_exp), r_lst)) =
+  let
+    val args = List.map (fn x => evalRuleSequential x) r_lst
+  in
+    case f_exp of
+         F0 f => f ()
+       | F1 f => f (List.nth (args, 0))
+       | F2 f => f (List.nth (args, 0)) (List.nth (args, 1))
+       | F3 f => f (List.nth (args, 0)) (List.nth (args, 1)) (List.nth (args, 2))
+       | F4 f => f (List.nth (args, 0)) (List.nth (args, 1)) (List.nth (args, 2)) (List.nth (args, 3))
+  end
 end
-
-
-(*
-structure ExpressionTree :>
-sig
-  type t
-end =
-struct
-  datatype exp_func =
-      F0 of () -> real
-    | F1 of real -> real
-    | F2 of real -> real -> real
-    | F3 of real -> real -> real -> real
-    | F4 of real -> real -> real -> real -> real
-
-  datatype exp_tree_node =
-    Node of {
-      parent: exp_tree_node,
-      children: exp_tree_node list,
-      f: exp_func,
-    }
-    
-  datatype exp_tree =
-    Tree of {
-      leaves:
-    }
-end
-*)
