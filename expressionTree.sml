@@ -15,8 +15,10 @@ sig
   val rule2str : rule -> string
   val evalRuleSequential : rule -> real
   type node = {parent: int, children: int list, f: exp_func}
-  val rule2adjlist : rule -> node Array.array
-  val print_adjlist : node Array.array -> unit
+  (*val rule2adjlist : rule -> node Array.array*)
+  (*val print_adjlist : node Array.array -> unit*)
+  val rule2seq : rule -> node Seq.t
+  val evalRuleParallel : node Seq.t -> real
 end =
 struct
   (* string is the function name; for printing purpose *)
@@ -101,6 +103,130 @@ struct
         ()
   in
     loop arr 0
+  end
+
+  fun rule2seq r =
+  let
+    val arr = rule2adjlist r
+  in
+    Seq.tabulate (fn i => Array.sub (arr, i)) (Array.length arr)
+  end
+
+
+  fun whose_parent this leaves =
+    if Seq.length leaves = 0 then
+      raise Fail "BUG: Leaf num should not be 0."
+    else
+      Seq.nth (Seq.filter (
+        fn x =>
+          case x of
+               (_, NONE) => raise Fail "BUG: Leaves should not be NONE."
+             | (_, SOME data) =>
+                 let
+                   val {parent = parent, children = _, f = _} = data
+                 in
+                   parent = this
+                 end
+      ) leaves) 0
+
+
+  fun is_leaf this leaves =
+    (Seq.length (Seq.filter (
+      fn x =>
+        case x of
+             (_, NONE) => raise Fail "BUG: Leaves should not be NONE."
+           | (i, SOME _) =>
+               i = this
+    ) leaves)) > 0
+
+
+  fun rake nodes leaves =
+    Seq.map (
+      fn x =>
+        case x of
+             (_, NONE) => x
+           | (i, SOME data) =>
+               let
+                 val {parent = parent, children = children, f = f} = data
+               in
+                 if is_leaf i leaves then (i, NONE)
+                 else
+                   case whose_parent i leaves of
+                        (_, NONE) => x
+                      | (_, SOME data) =>
+                          let
+                            val {parent = _, children = _, f = f_child} = data
+                            val value =
+                              case f_child of
+                                   F0 f' => f' ()
+                                 | _ =>
+                                     raise Fail "BUG: A leaf could not have more than 0 arguments"
+                          in
+                            (i,
+                            SOME {parent = (print "pa\n"; parent), children = List.tl children,
+                            f =
+                              case f of
+                                   F0 f' =>
+                                     raise Fail "BUG: A parent must have at least 1 child; 0 found."
+                                 | F1 f' =>
+                                     F0 (fn () => f' value)
+                                 | F2 f' =>
+                                     F1 (f' value)
+                                 | F3 f' =>
+                                     F2 (f' value)
+                                 | F4 f' =>
+                                     F3 (f' value)
+                            })
+                          end
+               end
+    ) nodes
+
+  fun evalRuleParallel node_seq =
+  let
+    fun loop nodes =
+    let
+      val raked_leaves = Seq.filter (
+        fn x =>
+          case x of
+               (_, NONE) => false
+             | (i, SOME data) => 
+                 let
+                   val {parent = parent, children = children, f = _} = data
+                 in
+                   if not (List.null children) then false
+                   else
+                     case Seq.nth nodes parent of
+                          (_, NONE) => raise Fail "BUG: No parent found."
+                        | (_, SOME data) =>
+                            let
+                              val {parent = _, children = children', f = _} =
+                                data
+                            in
+                              (List.hd children' = i)
+                            end
+                 end
+      ) nodes
+      val () = print ((Int.toString (Seq.length raked_leaves)) ^ "\n")
+      val _ = rake nodes raked_leaves
+      val () = print "Rake sucess\n"
+    in
+      if (Seq.length raked_leaves) = 1 then
+        case Seq.nth raked_leaves 0 of
+             (0, SOME data) =>
+               let
+                 val {parent = _, children = _, f = f} = data
+               in
+                 case f of
+                      F0 f' => f' ()
+                    | _ => raise Fail "A leaf function could not have more than 0 arguments"
+               end
+           | _ =>
+               loop (rake nodes raked_leaves)
+      else
+        loop (rake nodes raked_leaves)
+    end
+  in
+    loop (Seq.tabulate (fn i => (i, SOME (Seq.nth node_seq i))) (Seq.length node_seq))
   end
 
 end
