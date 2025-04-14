@@ -79,7 +79,7 @@ struct
           r_lst
       in
         Array.update (arr, this_pos,
-          {parent = parent_pos, children = !children, f = f_exp})
+          {parent = parent_pos, children = List.rev (!children), f = f_exp})
       end
   in
     (rule2adjlist_help r ~1; arr)
