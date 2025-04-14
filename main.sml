@@ -22,7 +22,7 @@ val const = ("CONST", GA.F0 (fn _ => 1.0))
 
 
 fun generate depth rule_lst =
-  if depth > 5 then
+  if depth > 2 then
     GA.R (const, [])
   else
     GA.R (activate (randomElement rule_lst) (depth + 1))
@@ -41,5 +41,7 @@ and genB depth =
   [ (const, []) ]
   
 
-val () = print ((GA.rule2str (genA 0)) ^ "\n")
-val () = print ((Real.toString (GA.evalRuleSequential (genA 0))) ^ "\n")
+val r = genA 0
+val () = print ((GA.rule2str r) ^ "\n")
+(*val () = print ((Real.toString (GA.evalRuleSequential (genA 0))) ^ "\n")*)
+val () = GA.print_adjlist (GA.rule2adjlist r)
