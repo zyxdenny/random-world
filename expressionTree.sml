@@ -61,6 +61,55 @@ struct
        | F4 f => f (List.nth (args, 0)) (List.nth (args, 1)) (List.nth (args, 2)) (List.nth (args, 3))
   end
 
+
+  fun evalRuleParallelNaive r =
+  let
+    val (R ((_, f_exp), r_lst)) = r
+  in
+    case f_exp of
+         F0 f => f ()
+       | F1 f => f (evalRuleParallelNaive (List.nth (r_lst, 0)))
+       | F2 f =>
+           let
+             val (a, b) =
+               ForkJoin.par (
+                 fn _ => evalRuleParallelNaive (List.nth (r_lst, 0)),
+                 fn _ => evalRuleParallelNaive (List.nth (r_lst, 1))
+               )
+           in
+             f a b
+           end
+       | F3 f =>
+           let
+             val ((a, b), c) =
+               ForkJoin.par (
+                 fn _ => ForkJoin.par (
+                   fn _ => evalRuleParallelNaive (List.nth (r_lst, 0)),
+                   fn _ => evalRuleParallelNaive (List.nth (r_lst, 1))
+                 ),
+                 fn _ => evalRuleParallelNaive (List.nth (r_lst, 2))
+               )
+           in
+             f a b c
+           end
+       | F4 f =>
+           let
+             val ((a, b), (c, d)) =
+               ForkJoin.par (
+                 fn _ => ForkJoin.par (
+                   fn _ => evalRuleParallelNaive (List.nth (r_lst, 0)),
+                   fn _ => evalRuleParallelNaive (List.nth (r_lst, 1))
+                 ),
+                 fn _ => ForkJoin.par (
+                   fn _ => evalRuleParallelNaive (List.nth (r_lst, 2)),
+                   fn _ => evalRuleParallelNaive (List.nth (r_lst, 3))
+                 )
+               )
+           in
+             f a b c d
+           end
+  end
+
   
   type node = {parent: int, children: int list, f: exp_func}
 
