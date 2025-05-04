@@ -1,50 +1,24 @@
-structure GA = GrammarAst
+structure ET = ExpressionTree
 
-val rng = Random.rand (1, 2)
+fun normalize (x: real) =
+  x / 500.0 - 1.0
 
-fun randomElement lst =
-let
-  val length = List.length lst
-  val index = Random.randRange (0, length - 1) rng
-in
-  List.nth (lst, index)
-end
+val (t, cnt) = ET.generate_tree 0 20 (100, 20)
 
-fun activate (f, lst) depth =
-  (f, List.map (fn x => x depth) lst)
+val (node_aseq, edge_aseq) = ET.expr2aseq (t, cnt)
 
+val () = print ((ET.tree2str t) ^ "\n")
 
-val plus = ("PLUS", GA.F2 (fn (x: real) => fn (y: real) => x + y))
-val minus = ("MINUS", GA.F2 (fn (x: real) => fn y => x - y))
-val mult = ("MULT", GA.F2 (fn (x: real) => fn y => x * y))
-val divi = ("DIV", GA.F2 (fn x => fn y => x / y))
-val const = ("CONST", GA.F0 (fn _ => 1.0))
+(*val () = print ("The number of nodes is " ^ (Int.toString cnt) ^ "\n")*)
+(*
+val res_seq = ET.evaluate_sequential t (normalize 10.0, normalize 11.0) 
+val () = print ("The correct result is " ^ (Real.toString res_seq) ^ "\n")
+
+val res = ET.evaluate (node_aseq, edge_aseq) (normalize 10.0, normalize 11.0)
+val () = print ("The result is " ^ (Real.toString res) ^ "\n")
+*)
 
 
-fun generate depth rule_lst =
-  if depth > 0 then
-    GA.R (const, [])
-  else
-    GA.R (activate (randomElement rule_lst) (depth + 1))
+val res_naive = ET.evaluate_sequential t (normalize 987.0, normalize 676.0) 
+val () = print ("The naive parallel result is " ^ (Real.toString res_naive) ^ "\n")
 
-
-(* Grammar definition *)
-fun genA depth =
-  generate depth
-  [ (plus, [genA, genA])
-  , (minus, [genA, genA])
-  (*, (const, [])*)
-  ]
-
-and genB depth =
-  generate depth
-  [ (const, []) ]
-  
-
-val r = genA 0
-val () = print ((GA.rule2str r) ^ "\n")
-(*val () = print ((Real.toString (GA.evalRuleSequential (genA 0))) ^ "\n")*)
-(*val () = GA.print_adjlist (GA.rule2adjlist r)*)
-val rseq = GA.rule2seq r
-val res_par = GA.evalRuleParallel rseq
-val () = print ((Real.toString res_par) ^ "\n")
