@@ -2,4 +2,5 @@ $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
 
 lib/github.com/mpllang/mpllib/sources.mpl.mlb
 ExpressionTreeNew.sml
+Benchmark.sml
 main.sml

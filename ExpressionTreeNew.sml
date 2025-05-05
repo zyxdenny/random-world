@@ -6,6 +6,7 @@ struct
   val randRange = Random.randRange
   val randReal = Random.randReal
   val randInt = Random.randInt
+  val randBool = fn rng => ((randInt rng) mod 2) = 0
 
   structure A = Array
   structure ASeq = ArraySequence 
@@ -209,24 +210,24 @@ struct
        | MIN (e1, e2) => min (evaluate_sequential e1 (x, y)) (evaluate_sequential e2 (x, y))
        *)
 
-  fun evaluate_tree_par_naive (tree: expr) (x, y) =
+  fun evaluate_par_naive (tree: expr) (x, y) =
     case tree of
          CONST c => c
        | X => x
        | Y => y
        (*
-       | NEG e => ~(evaluate_tree_par_naive e (x, y))
-       | SIN e => Math.sin (Math.pi * (evaluate_tree_par_naive e (x, y)))
-       | COS e => Math.cos (Math.pi * (evaluate_tree_par_naive e (x, y)))
-       | SQRT e => (Math.sqrt ((1.0 + (evaluate_tree_par_naive e (x, y))) * 2.0)) - 1.0
-       | ABS e => abs (evaluate_tree_par_naive e (x, y))
+       | NEG e => ~(evaluate_par_naive e (x, y))
+       | SIN e => Math.sin (Math.pi * (evaluate_par_naive e (x, y)))
+       | COS e => Math.cos (Math.pi * (evaluate_par_naive e (x, y)))
+       | SQRT e => (Math.sqrt ((1.0 + (evaluate_par_naive e (x, y))) * 2.0)) - 1.0
+       | ABS e => abs (evaluate_par_naive e (x, y))
        *)
        | ADD (e1, e2) =>
            let
              val (a, b) =
                par (
-                 fn _ => evaluate_tree_par_naive e1 (x, y),
-                 fn _ => evaluate_tree_par_naive e2 (x, y)
+                 fn _ => evaluate_par_naive e1 (x, y),
+                 fn _ => evaluate_par_naive e2 (x, y)
                )
            in
              (a + b) / 2.0
@@ -235,8 +236,8 @@ struct
            let
              val (a, b) =
                par (
-                 fn _ => evaluate_tree_par_naive e1 (x, y),
-                 fn _ => evaluate_tree_par_naive e2 (x, y)
+                 fn _ => evaluate_par_naive e1 (x, y),
+                 fn _ => evaluate_par_naive e2 (x, y)
                )
            in
              a * b
@@ -246,8 +247,8 @@ struct
            let
              val (a, b) =
                ForkJoin.par (
-                 fn _ => evaluate_tree_par_naive e1 (x, y),
-                 fn _ => evaluate_tree_par_naive e2 (x, y)
+                 fn _ => evaluate_par_naive e1 (x, y),
+                 fn _ => evaluate_par_naive e2 (x, y)
                )
            in
              max a b
@@ -256,8 +257,8 @@ struct
            let
              val (a, b) =
                ForkJoin.par (
-                 fn _ => evaluate_tree_par_naive e1 (x, y),
-                 fn _ => evaluate_tree_par_naive e2 (x, y)
+                 fn _ => evaluate_par_naive e1 (x, y),
+                 fn _ => evaluate_par_naive e2 (x, y)
                )
            in
              min a b
@@ -496,9 +497,98 @@ struct
     end
 
 
+  fun is_selected_compress node_aseq i e =
+    case e of
+         E1 (p, c) =>
+           let
+             val (_, rcn) = ASeq.nth node_aseq c
+           in
+             case rcn of
+                  UNODE (a1, a0) =>
+                    let
+                      val coin_p = randBool (rand (p, i))
+                      val coin_c = randBool (rand (c, i))
+                    in
+                      coin_p andalso (not coin_c)
+                    end
+                | _ => false
+           end
+       | _ => false
+
+
+  fun map_to_inject_update_p node_aseq e =
+    case e of
+         E1 (p, c) =>
+           let
+             val (_, rpn) = ASeq.nth node_aseq p
+             val (_, rcn) = ASeq.nth node_aseq c
+           in
+             case (rpn, rcn) of
+                  (UNODE (a1, a0), UNODE (b0, b1)) =>
+                    (p, (p, UNODE (a1 * b1, a1 * b0 + a0)))
+                | _ => raise_bug "Two nodes have to be all UNODES."
+           end
+       | _ => raise_bug "Should not exist E2."
+
+
+  fun map_to_inject_compress node_aseq e =
+    case e of
+         E1 (p, c) =>
+           let
+             val (_, rpn) = ASeq.nth node_aseq p
+             val (_, rcn) = ASeq.nth node_aseq c
+           in
+             case (rpn, rcn) of
+                  (UNODE (a1, a0), UNODE (b0, b1)) =>
+                    (c, (p, UNODE (a1 * b1, a1 * b0 + a0)))
+                | _ => raise_bug "Two nodes have to be all UNODES."
+           end
+       | _ => raise_bug "Should not exist E2."
+
+
+  fun map_edge_compress node_aseq e =
+    case e of
+      E1 (p, c) =>
+        let
+          val (p', _) = ASeq.nth node_aseq p
+          val (c', _) = ASeq.nth node_aseq c
+        in
+          E1 (p', c')
+        end
+    | _ => e
+
+
+  fun is_edge_not_compressed e =
+    case e of
+         E1 (p, c) =>
+           if p = c then false else true
+       | _ => true
+
+
+  fun compress i (node_aseq, edge_aseq) =
+    let
+      val edges_to_compress =
+        let
+          val p = is_selected_compress node_aseq i
+        in
+          ASeq.filter p edge_aseq
+        end
+      val to_be_injected =
+        ASeq.map (map_to_inject_update_p node_aseq) edges_to_compress
+      val to_be_injected' =
+        ASeq.map (map_to_inject_compress node_aseq) edges_to_compress
+      val node_aseq' = ASeq.inject (node_aseq, to_be_injected)
+      val node_aseq'' = ASeq.inject (node_aseq', to_be_injected')
+      val edge_aseq' = ASeq.map (map_edge_compress node_aseq'') edge_aseq
+      val edge_aseq'' = ASeq.filter is_edge_not_compressed edge_aseq'
+    in
+      (node_aseq'', edge_aseq'')
+    end
+
+
   fun evaluate (node_aseq, edge_aseq) (x, y) =
     let
-      fun loop (node_aseq, edge_aseq) (x, y) =
+      fun loop (node_aseq, edge_aseq) (x, y) i =
         if ASeq.length edge_aseq = 0 then
           case ASeq.nth node_aseq 0 of
                (_, LEAF l) => get_leaf_val (x, y) l
@@ -506,11 +596,12 @@ struct
         else
           let
             val (node_aseq', edge_aseq') = rake (x, y) (node_aseq, edge_aseq)
+            val (node_aseq'', edge_aseq'') = compress i (node_aseq', edge_aseq')
           in
-            loop (node_aseq', edge_aseq') (x, y)
+            loop (node_aseq'', edge_aseq'') (x, y) (i + 1)
           end
     in
-      loop (node_aseq, edge_aseq) (x, y)
+      loop (node_aseq, edge_aseq) (x, y) 0
     end
 end
 
