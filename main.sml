@@ -3,7 +3,7 @@ structure ET = ExpressionTree
 fun normalize (x: real) =
   x / 500.0 - 1.0
 
-val (t, cnt) = ET.generate_tree 0 15 (100, 20)
+val (t, cnt) = ET.generate_tree 0 10 (100, 20)
 
 val (node_aseq, edge_aseq) = ET.expr2aseq (t, cnt)
 
@@ -19,7 +19,6 @@ val _ =
     print ("The correct result is " ^ (Real.toString res_seq) ^ "\n")
   end
 
-(*
 val _ =
   let
     val res_rake_compress =
@@ -28,7 +27,6 @@ val _ =
   in
     print ("The result is " ^ (Real.toString res_rake_compress) ^ "\n")
   end
-*)
 
 (*
 val _ =
