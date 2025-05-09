@@ -8,6 +8,11 @@ struct
   val randInt = Random.randInt
   val randBool = fn rng => ((randInt rng) mod 2) = 0
 
+  val pi = Math.pi
+  val pow = Math.pow
+  val sin = Math.sin
+  val cos = Math.cos
+
   structure A = Array
   structure ASeq = ArraySequence 
 
@@ -15,19 +20,10 @@ struct
       CONST of real
     | X
     | Y
-    (*
-    | NEG of expr
     | SIN of expr
     | COS of expr
-    | SQRT of expr
-    | ABS of expr
-    *)
     | ADD of expr * expr
     | MULT of expr * expr
-    (*
-    | MAX of expr * expr
-    | MIN of expr * expr
-    *)
 
   fun raise_bug str =
     raise Fail ("BUG: " ^ str)
@@ -110,62 +106,14 @@ struct
         end
     end
 
-  (* Sequential way to generate a tree; not recommended *)
-  fun generate_tree_sequential depth max_depth (seed1, seed2) =
-    let
-      val rng = rand (seed1, seed2)
-    in
-      if depth > max_depth then
-        case randRange (0, 2) rng of
-             0 => X
-           | 1 => Y
-           | _ => CONST (randReal rng)
-      else
-        let
-          val rng = rand (seed1, seed2)
-          val rng' =
-            let
-              val seed = randInt rng
-            in
-              rand (seed, seed + 1)
-            end
-          val rng'' =
-            let
-              val seed = randInt rng'
-            in
-              rand (seed, seed + 1)
-            end
-          val seed_pair1 = (randInt rng, randInt rng')
-          val seed_pair2 = (randInt rng, randInt rng'')
-          val exp_next = generate_tree_sequential (depth + 1) max_depth
-        in
-          if depth < 3 then
-            case randRange (0, 1) rng of
-                 0 => ADD  (exp_next seed_pair1, exp_next seed_pair2)
-               | _ => MULT (exp_next seed_pair1, exp_next seed_pair2)
-          else
-            case randRange (0, 4) rng of
-                 0  => CONST (randReal rng)
-               | 1  => X
-               | 2  => Y
-               | 3  => ADD   (exp_next seed_pair1, exp_next seed_pair2)
-               | _  => MULT  (exp_next seed_pair1, exp_next seed_pair2)
-        end
-    end
-
 
   fun tree2str (tree: expr) =
     case tree of
          CONST c => Real.toString c
        | X => "x"
        | Y => "y"
-       (*
-       | NEG e => "-(" ^ (tree2str e) ^ ")"
        | SIN e => "sin(" ^ (tree2str e) ^ ")"
        | COS e => "cos(" ^ (tree2str e) ^ ")"
-       | SQRT e => "sqrt(" ^ (tree2str e) ^ ")"
-       | ABS e => "|" ^ (tree2str e) ^ "|"
-       *)
        | ADD (e1, e2) =>
            let 
              val (str1, str2) =
@@ -186,42 +134,30 @@ struct
            in
              "(" ^ str1 ^ ") * (" ^ str2 ^ ")"
            end
-       (*
-       | MAX (e1, e2) => "max(" ^ (tree2str e1) ^ ", " ^ (tree2str e2) ^ ")"
-       | MIN (e1, e2) => "min(" ^ (tree2str e1) ^ ", " ^ (tree2str e2) ^ ")"
-       *)
+
 
   fun evaluate_sequential (tree: expr) (x, y) =
     case tree of
          CONST c => c
        | X => x
        | Y => y
-       (*
-       | NEG e => ~(evaluate_sequential e (x, y))
-       | SIN e => Math.sin (Math.pi * (evaluate_sequential e (x, y)))
-       | COS e => Math.cos (Math.pi * (evaluate_sequential e (x, y)))
-       | SQRT e => (Math.sqrt ((1.0 + (evaluate_sequential e (x, y))) * 2.0)) - 1.0
-       | ABS e => abs (evaluate_sequential e (x, y))
-       *)
-       | ADD (e1, e2) => ((evaluate_sequential e1 (x, y)) + (evaluate_sequential e2 (x, y))) / 2.0
-       | MULT (e1, e2) => (evaluate_sequential e1 (x, y)) * (evaluate_sequential e2 (x, y))
-       (*
-       | MAX (e1, e2) => max (evaluate_sequential e1 (x, y)) (evaluate_sequential e2 (x, y))
-       | MIN (e1, e2) => min (evaluate_sequential e1 (x, y)) (evaluate_sequential e2 (x, y))
-       *)
+       | ADD (e1, e2) =>
+           ((evaluate_sequential e1 (x, y)) + (evaluate_sequential e2 (x, y))) / 2.0
+       | MULT (e1, e2) =>
+           (evaluate_sequential e1 (x, y)) * (evaluate_sequential e2 (x, y))
+       | SIN e =>
+           sin (pi * (evaluate_sequential e (x, y)))
+       | COS e =>
+           cos (pi * (evaluate_sequential e (x, y)))
+
 
   fun evaluate_par_naive (tree: expr) (x, y) =
     case tree of
          CONST c => c
        | X => x
        | Y => y
-       (*
-       | NEG e => ~(evaluate_par_naive e (x, y))
-       | SIN e => Math.sin (Math.pi * (evaluate_par_naive e (x, y)))
-       | COS e => Math.cos (Math.pi * (evaluate_par_naive e (x, y)))
-       | SQRT e => (Math.sqrt ((1.0 + (evaluate_par_naive e (x, y))) * 2.0)) - 1.0
-       | ABS e => abs (evaluate_par_naive e (x, y))
-       *)
+       | SIN e => sin (pi * (evaluate_par_naive e (x, y)))
+       | COS e => cos (pi * (evaluate_par_naive e (x, y)))
        | ADD (e1, e2) =>
            let
              val (a, b) =
@@ -242,28 +178,7 @@ struct
            in
              a * b
            end
-       (*
-       | MAX (e1, e2) =>
-           let
-             val (a, b) =
-               ForkJoin.par (
-                 fn _ => evaluate_par_naive e1 (x, y),
-                 fn _ => evaluate_par_naive e2 (x, y)
-               )
-           in
-             max a b
-           end
-       | MIN (e1, e2) =>
-           let
-             val (a, b) =
-               ForkJoin.par (
-                 fn _ => evaluate_par_naive e1 (x, y),
-                 fn _ => evaluate_par_naive e2 (x, y)
-               )
-           in
-             min a b
-           end
-       *)
+
 
   (* Rake and Compress *)
   datatype func =
@@ -276,7 +191,7 @@ struct
     | CONST_T of real
 
   datatype rnode =
-      UNODE of real * real
+      UNODE of real * real * real * real
     | BNODE of func
     | LEAF of leaf_t
 
@@ -350,6 +265,35 @@ struct
                    (final_index, edge_lst''')
                  end
                end
+           | SIN e =>
+               let
+                 val index' = index + 1
+                 val (final_index, edge_lst') = build e index' edge_lst
+                 val _ = A.update (node_arr, index, (index, UNODE
+                   (* Taylor series *)
+                   (~(pi*pi*pi/6.0), 0.0, pi, 0.0)))
+               in
+                 let
+                   val edge_lst'' = (E1 (index, index'))
+                                     :: edge_lst'
+                 in
+                   (final_index, edge_lst'')
+                 end
+               end
+           | COS e =>
+               let
+                 val index' = index + 1
+                 val (final_index, edge_lst') = build e index' edge_lst
+                 val _ = A.update (node_arr, index, (index, UNODE
+                   (0.0, ~(pi*pi/2.0), 0.0, 1.0)))
+               in
+                 let
+                   val edge_lst'' = (E1 (index, index'))
+                                     :: edge_lst'
+                 in
+                   (final_index, edge_lst'')
+                 end
+               end
 
       val (_, edge_lst) = build t 0 []
     in
@@ -386,12 +330,13 @@ struct
            let
              val (_, rpn) = ASeq.nth node_aseq p
              val (_, rcn) = ASeq.nth node_aseq c
-             val (a1, a0) = case rpn of UNODE co => co
+             val (a3, a2, a1, a0) = case rpn of UNODE (a3, a2, a1, a0) => (a3, a2, a1, a0)
                                       | _ => raise_bug "Has to be unode."
-             val l = case rcn of LEAF l => l
+             val l_val = case rcn of LEAF l => get_leaf_val (x, y) l
                                | _ => raise_bug "Has to be leaf."
+             val res = a3*l_val*l_val*l_val + a2*l_val*l_val + a1*l_val + a0
            in
-             (p, (p, LEAF (CONST_T (get_leaf_val (x, y) l))))
+             (p, (p, LEAF (CONST_T res)))
            end
        | E2 (p, (c1, c2)) =>
            let
@@ -416,21 +361,21 @@ struct
                     end
                 | (LEAF l, _) =>
                     let
-                      val (a1, a0) =
+                      val coe =
                         case f of
-                             ADD_F => (1.0 / 2.0, (get_leaf_val (x, y) l) / 2.0)
-                           | MULT_F => (get_leaf_val (x, y) l, 0.0)
+                             ADD_F => (0.0, 0.0, 1.0 / 2.0, (get_leaf_val (x, y) l) / 2.0)
+                           | MULT_F => (0.0, 0.0, get_leaf_val (x, y) l, 0.0)
                     in
-                      (p, (p, UNODE (a1, a0)))
+                      (p, (p, UNODE coe))
                     end
                 | (_, LEAF l) =>
                     let
-                      val (a1, a0) =
+                      val coe =
                         case f of
-                             ADD_F => (1.0 / 2.0, (get_leaf_val (x, y) l) / 2.0)
-                           | MULT_F => (get_leaf_val (x, y) l, 0.0)
+                             ADD_F => (0.0, 0.0, 1.0 / 2.0, (get_leaf_val (x, y) l) / 2.0)
+                           | MULT_F => (0.0, 0.0, get_leaf_val (x, y) l, 0.0)
                     in
-                      (p, (p, UNODE (a1, a0)))
+                      (p, (p, UNODE coe))
                     end
                 | _ => raise_bug "At least one of the edges has to be leaf-edge."
            end
@@ -504,7 +449,7 @@ struct
              val (_, rcn) = ASeq.nth node_aseq c
            in
              case rcn of
-                  UNODE (a1, a0) =>
+                  UNODE _ =>
                     let
                       val coin_p = randBool (rand (p, i))
                       val coin_c = randBool (rand (c, i))
@@ -524,8 +469,17 @@ struct
              val (_, rcn) = ASeq.nth node_aseq c
            in
              case (rpn, rcn) of
-                  (UNODE (a1, a0), UNODE (b0, b1)) =>
-                    (p, (p, UNODE (a1 * b1, a1 * b0 + a0)))
+                  (UNODE (a3, a2, a1, a0), UNODE (b3, b2, b1, b0)) =>
+                    let
+                      val coe =
+                        ( a1*b3 + 2.0*a2 * b0*b3 + 2.0*a2*b1 * b2+a3*b0*b0*b3 + 3.0*a3*b0*b1*b2 + a3*b1*b1*b1
+                        , a1*b2 + a2*b0*b2 + a2*b1*b1 + 3.0*a3*b0*b0*b2 + 3.0*a3*b0*b1*b1
+                        , a1*b1 + 2.0*a2*b0* b1 + 3.0*a3*b0*b0*b1
+                        , a0 + a1*b0 + a2*b0*b0 + a3*b0*b0*b0
+                        )
+                    in
+                      (p, (p, UNODE coe))
+                    end
                 | _ => raise_bug "Two nodes have to be all UNODES."
            end
        | _ => raise_bug "Should not exist E2."
@@ -535,13 +489,9 @@ struct
     case e of
          E1 (p, c) =>
            let
-             val (_, rpn) = ASeq.nth node_aseq p
              val (_, rcn) = ASeq.nth node_aseq c
            in
-             case (rpn, rcn) of
-                  (UNODE (a1, a0), UNODE (b0, b1)) =>
-                    (c, (p, UNODE (a1 * b1, a1 * b0 + a0)))
-                | _ => raise_bug "Two nodes have to be all UNODES."
+             (c, (p, rcn))
            end
        | _ => raise_bug "Should not exist E2."
 
