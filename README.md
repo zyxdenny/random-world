@@ -21,7 +21,8 @@ Explanations:
 - `-d`: Provide the maximum depth of the trees you want to generate. It should be between $[1, 25]$. Default 15.
 - `-o`: Procide the output path. Default `img.ppx`.
 
-The output file is a PPX format image.
+The output file is a PPX format image. A sample is shown below:
+![sample](./samples/img.ppx)
 
 For example,
 ```
