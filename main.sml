@@ -1,5 +1,29 @@
 structure ET = ExpressionTree
 
+val timeNow = Time.now ()
+val seed_time : int = Int.fromLarge (Time.toSeconds timeNow)
+
+val seed_r = CommandLineArgs.parseInt "r" seed_time
+val seed_g = CommandLineArgs.parseInt "g" (seed_time + 10)
+val seed_b = CommandLineArgs.parseInt "b" (seed_time + 20)
+val output = CommandLineArgs.parseString "o" "img.ppx"
+(* Maximum depth of the tree *)
+val depth = CommandLineArgs.parseInt "d" 15
+val _ = if depth > 25 orelse depth < 1
+         then raise (Fail "Depth should be in [1, 25]")
+         else ()
+
+
+val ((t_r, cnt_r), ((t_g, cnt_g), (t_b, cnt_b))) =
+  ForkJoin.par (
+    fn _ => ET.generate_tree 0 depth (seed_r, seed_r),
+    fn _ => ForkJoin.par (
+      fn _ => ET.generate_tree 0 depth (seed_g, seed_g),
+      fn _ => ET.generate_tree 0 depth (seed_b, seed_b)
+    )
+  )
+
+(*
 val ((t_r, cnt_r), ((t_g, cnt_g), (t_b, cnt_b))) =
   ForkJoin.par (
     fn _ => ET.generate_tree 0 15 (7875, 89),
@@ -8,6 +32,7 @@ val ((t_r, cnt_r), ((t_g, cnt_g), (t_b, cnt_b))) =
       fn _ => ET.generate_tree 0 20 (65, 979)
     )
   )
+*)
 
 val ((node_aseq_r, edge_aseq_r), ((node_aseq_g, edge_aseq_g), (node_aseq_b, edge_aseq_b))) = 
   ForkJoin.par (
@@ -26,7 +51,8 @@ fun normalize (x: real) (size: real) =
   x / (size / 2.0) - 1.0
 
 
-(*
+(* This is the Rake-and-Compress Implementation;
+ * However, it runs too slow
 val image_data =
   let
     fun f cnt =
@@ -88,7 +114,12 @@ val image_data =
     Seq.tabulate f (width * height)
   end
 
-val () = PPM.write "img.ppx" {height = height, width = width, data = image_data}
+val () =
+  let
+    val () = PPM.write output {height = height, width = width, data = image_data}
+  in
+    print (output ^ " generated successfully.\n")
+  end
 (*
 val _ =
   let
