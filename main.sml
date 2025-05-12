@@ -19,13 +19,14 @@ val ((node_aseq_r, edge_aseq_r), ((node_aseq_g, edge_aseq_g), (node_aseq_b, edge
   )
 
 
-val height = 50
-val width = 50
+val height = 500
+val width = 500
 
 fun normalize (x: real) (size: real) =
   x / (size / 2.0) - 1.0
 
 
+(*
 val image_data =
   let
     fun f cnt =
@@ -50,6 +51,38 @@ val image_data =
         { red   = Word8.fromInt (Real.round ((v_r + 1.0) * 255.0)),
           green = Word8.fromInt (Real.round ((v_g + 1.0) * 255.0)),
           blue  = Word8.fromInt (Real.round ((v_b + 1.0) * 255.0)) }
+      end
+  in
+    Seq.tabulate f (width * height)
+  end
+*)
+
+
+(* The naive parallel evaluation *)
+val image_data =
+  let
+    fun f cnt =
+      let
+        val i = cnt div width
+        val j = cnt mod width
+        val (v_r, (v_g, v_b)) =
+          ForkJoin.par (
+            fn _ => ET.evaluate_par_naive t_r
+              (normalize (Real.fromInt i) (Real.fromInt height),
+               normalize (Real.fromInt j) (Real.fromInt width)),
+            fn _ => ForkJoin.par (
+              fn _ => ET.evaluate_par_naive t_g
+                (normalize (Real.fromInt i) (Real.fromInt height),
+                 normalize (Real.fromInt j) (Real.fromInt width)),
+              fn _ => ET.evaluate_par_naive t_b
+                (normalize (Real.fromInt i) (Real.fromInt height),
+                 normalize (Real.fromInt j) (Real.fromInt width))
+            )
+          )
+      in
+        { red   = Word8.fromInt (Real.round ((v_r + 1.0) / 2.0 * 255.0)),
+          green = Word8.fromInt (Real.round ((v_g + 1.0) / 2.0 * 255.0)),
+          blue  = Word8.fromInt (Real.round ((v_b + 1.0) / 2.0 * 255.0)) }
       end
   in
     Seq.tabulate f (width * height)
