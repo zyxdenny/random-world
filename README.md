@@ -22,7 +22,7 @@ Explanations:
 - `-o`: Procide the output path. Default `img.ppx`.
 
 The output file is a PPX format image. A sample is shown below:
-![sample](./samples/img.ppx)
+![sample](./samples/img.png)
 
 For example,
 ```
