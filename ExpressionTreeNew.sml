@@ -56,8 +56,8 @@ struct
           val seed_pair2 = (randInt rng, randInt rng'')
           val exp_next = generate_tree (depth + 1) max_depth
         in
-          if depth < 3 then
-            case randRange (0, 2) rng of
+          if depth < 15 then
+            case randRange (0, 3) rng of
                  0 =>
                    let
                      val ((a, cnt1), (b, cnt2)) =
@@ -68,7 +68,7 @@ struct
                    in
                      (ADD (a, b), cnt1 + cnt2 + 1)
                    end
-               | _ =>
+               | 1 =>
                    let
                      val ((a, cnt1), (b, cnt2)) =
                        par (
@@ -78,8 +78,20 @@ struct
                    in
                      (MULT (a, b), cnt1 + cnt2 + 1)
                    end
+               | 2 =>
+                   let
+                     val (a, cnt) = exp_next seed_pair1
+                   in
+                     (SIN (a), cnt + 1)
+                   end
+               | _ =>
+                   let
+                     val (a, cnt) = exp_next seed_pair1
+                   in
+                     (COS (a), cnt + 1)
+                   end
           else
-            case randRange (0, 12) rng of
+            case randRange (0, 6) rng of
                  0  => (CONST (randReal rng), 1)
                | 1  => (X, 1)
                | 2  => (Y, 1)
@@ -93,7 +105,7 @@ struct
                    in
                      (ADD (a, b), cnt1 + cnt2 + 1)
                    end
-               | _  =>
+               | 4  =>
                    let
                      val ((a, cnt1), (b, cnt2)) =
                        par (
@@ -102,6 +114,18 @@ struct
                        )
                    in
                      (MULT (a, b), cnt1 + cnt2 + 1)
+                   end
+               | 5 =>
+                   let
+                     val (a, cnt) = exp_next seed_pair1
+                   in
+                     (SIN (a), cnt + 1)
+                   end
+               | _ =>
+                   let
+                     val (a, cnt) = exp_next seed_pair1
+                   in
+                     (COS (a), cnt + 1)
                    end
         end
     end
@@ -271,7 +295,7 @@ struct
                  val (final_index, edge_lst') = build e index' edge_lst
                  val _ = A.update (node_arr, index, (index, UNODE
                    (* Taylor series *)
-                   (~(pi*pi*pi/6.0), 0.0, pi, 0.0)))
+                   (~(1.0/6.0), 0.0, 1.0, 0.0)))
                in
                  let
                    val edge_lst'' = (E1 (index, index'))
@@ -285,7 +309,7 @@ struct
                  val index' = index + 1
                  val (final_index, edge_lst') = build e index' edge_lst
                  val _ = A.update (node_arr, index, (index, UNODE
-                   (0.0, ~(pi*pi/2.0), 0.0, 1.0)))
+                   (0.0, ~(1.0/2.0), 0.0, 1.0)))
                in
                  let
                    val edge_lst'' = (E1 (index, index'))
@@ -335,6 +359,7 @@ struct
              val l_val = case rcn of LEAF l => get_leaf_val (x, y) l
                                | _ => raise_bug "Has to be leaf."
              val res = a3*l_val*l_val*l_val + a2*l_val*l_val + a1*l_val + a0
+             val res = if res > 1.0 then 1.0 else if res < ~1.0 then ~1.0 else res
            in
              (p, (p, LEAF (CONST_T res)))
            end
